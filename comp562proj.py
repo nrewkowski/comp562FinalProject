@@ -128,17 +128,19 @@ def luminance(rgb):
 #******************255 is darker
 #******************luminance and grayscale value are the same
 #make sure to convert to 0-1.0
-skips=[6,6]
+skips=[3,3]
 showImages=False
 i=0
 
+rangeOfImagesToProcess=3000
+rangeOfImagesToShow=rangeOfImagesToProcess
 start_time = time.time()
 print("&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&",type(4) is int)
-for painting in paintingPictures[0:100]:
+for painting in paintingPictures[0:rangeOfImagesToProcess]:
     thisPainting=mpimg.imread(paintingPicturesPath+'/'+painting)
     thisPaintingDataframe=paintingMetadata.loc[paintingMetadata['new_filename']== painting]
     imageStyle=thisPaintingDataframe['style'].values[0]
-    paintingImageLabels.append(imageStyle)
+    
     if showImages:
         plt.axis('off') 
         plt.xticks()
@@ -150,13 +152,14 @@ for painting in paintingPictures[0:100]:
         plt.show()
     limits=[len(thisPainting),len(thisPainting[0])]
     numPixels=limits[0]*limits[1]
-    print("____________________________this pic is",painting,len(thisPainting),thisPainting[0][0])#,type(thisPainting[0][0]),imageStyle,imageStyle=="Baroque",type(imageStyle))
+    print("____________________________this pic is",i,painting,len(thisPainting),thisPainting[0][0])#,type(thisPainting[0][0]),imageStyle,imageStyle=="Baroque",type(imageStyle))
     #print(paintingImageLabels.count('Baroque'),'\n')#,collections.Counter(paintingImageLabels))
     #print("IMAGE STYLE IS",imageStyle)
-    if type(thisPainting[0][0]) is not np.ndarray or imageStyle=='nan':
+    if type(thisPainting[0][0]) is not np.ndarray or str(imageStyle)=='nan' or imageStyle==None:
         pass
         #print("^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^not an image?",painting)
     else:
+        paintingImageLabels.append(imageStyle)
         averageRGB=[0,0,0]
         averageColorGrayscale=0;
         darkestColorInRGB=[0,0,0] #I can get this by converting to grayscale
@@ -170,7 +173,7 @@ for painting in paintingPictures[0:100]:
         
         for thisPixelX in range(0,limits[0],skips[0]):
             for thisPixelY in range(0,limits[1],skips[1]):
-                thisPixelRGB=(thisPainting[thisPixelX][thisPixelY])/255.0
+                thisPixelRGB=(thisPainting[thisPixelX][thisPixelY][0:3])/255.0
                 thisPixelGrayscale=luminance(thisPixelRGB)
                 averageRGB+=thisPixelRGB
                 averageColorGrayscale+=thisPixelGrayscale
@@ -224,6 +227,9 @@ from matplotlib.offsetbox import (TextArea, DrawingArea, OffsetImage,
 from mpl_toolkits.mplot3d import axes3d
 from matplotlib.cbook import get_sample_data
 from mpl_toolkits.mplot3d.proj3d import proj_transform
+from matplotlib.text import Annotation
+from mpl_toolkits.mplot3d import proj3d
+import pylab
 class Annotation3D(Annotation):
     '''Annotate the point xyz with text s'''
 
@@ -237,23 +243,53 @@ class Annotation3D(Annotation):
         self.xy=(xs,ys)
         Annotation.draw(self, renderer)
         
+        
+
+def annotate3D(ax, s, *args, **kwargs):
+    '''add anotation text s to to Axes3d ax'''
+
+    tag = Annotation3D(s, *args, **kwargs)
+    ax.add_artist(tag)
+    
 print("this many features=",len(paintingImageFeatures[0]),'___this many labels',len(collections.Counter(paintingImageLabels)))
 #print(gmm)
 numClusters=len(collections.Counter(paintingImageLabels))
 numClusters=3
+from sklearn import preprocessing
+#reducedData=PCA(n_components=numClusters).fit_transform(featureMatrix)
+reducedData=preprocessing.StandardScaler().fit_transform(PCA(n_components=numClusters).fit_transform(featureMatrix))
+#reducedData=pandas.DataFrame(reducedData,columns=featureMatrix.columns)
+kmeans = KMeans(init='k-means++',n_clusters=numClusters, n_init=10)
+labels = kmeans.fit_predict(reducedData)
 
-reducedData=PCA(n_components=numClusters).fit_transform(featureMatrix)
-kmeans = KMeans(init='k-means++',n_clusters=len(collections.Counter(paintingImageLabels)), n_init=10)
-labels = kmeans.fit(reducedData).predict(reducedData)
 
-
-gmm=sklearn.mixture.GaussianMixture(n_components=len(collections.Counter(paintingImageLabels)),covariance_type='full').fit(reducedData)
+gmm=sklearn.mixture.GaussianMixture(n_components=numClusters,covariance_type='full').fit(reducedData)
 labels2=gmm.predict(reducedData)
+from statistics import mode
+from sklearn.metrics import accuracy_score
+from sklearn import datasets
 
+
+uniqueLabels=np.unique(paintingImageLabels).tolist()
+intLabels=[]
+for label in paintingImageLabels:
+    print(label,str(label)=='nan',label==None)
+    intLabels.append(uniqueLabels.index(label))
+print(intLabels,labels2)
+'''for i in range(numClusters):
+    cat2=(labels2==i)
+    cat=(labels==i)
+    labels2[cat2]=mode(intLabels[cat2])
+    labels[cat]=mode(intLabels[cat])'''
+
+acc=accuracy_score(intLabels,labels)
+acc2=accuracy_score(intLabels,labels2)
+print("accuracies",acc,acc2)
+'''
 fig = plt.figure()
 ax = fig.add_subplot(111, projection='3d')
 print("REDUCED DATA",reducedData[:, 2])
-ax.scatter(reducedData[:, 0], reducedData[:, 1], reducedData[:, 2],c=labels2,marker='o');
+ax.scatter(reducedData[:, 0], reducedData[:, 1], reducedData[:, 2],c=labels2,marker='o',cmap='gist_rainbow');
 ax.set_xlabel('x axis')
 ax.set_ylabel('y axis')
 ax.set_zlabel('z axis')
@@ -261,26 +297,72 @@ ax.set_zlabel('z axis')
 #for cluster in range(numClusters):
     #print('cluster: ', cluster,np.where(labels == cluster))
     #print(paintingImageLabels[np.where(labels == cluster)])
+annotations=[]
+textAnnotations=[]
+
+import random
+import seaborn as sns
+frame_palette = sns.color_palette('Set1',
+                                          n_colors=len(np.unique(labels2)))
 for i, txt in enumerate(paintingImageLabels):
     #print("feature matrix",featureMatrix[i][0])
     #arr = np.arange(100).reshape((10, 10))
-    tag = Annotation3D(s, *args, **kwargs)
-    ax.add_artist(tag)
-    '''ax.annotate(txt, (reducedData[i][0], reducedData[i][1], reducedData[i][2]))
-    im = OffsetImage(mpimg.imread(paintingPicturesPath+'/'+paintingPictures[i]), zoom=0.05)
+    #ax.annotate(txt, (reducedData[i][0], reducedData[i][1], reducedData[i][2]))
+    
+    #im.image.axes = ax
+    #ax.add_artist(ab)
+    
+    print(len(paintingImageLabels),len(reducedData))
+    #tag = annotate3D(ax,txt,(reducedData[i][0], reducedData[i][1], reducedData[i][2]), fontsize=10, xytext=(-3,3),
+               #textcoords='offset points', ha='right',va='bottom')
+    x2, y2, _ = proj3d.proj_transform(reducedData[i][0],reducedData[i][1],reducedData[i][2], ax.get_proj())
+    
+    #annotationPosition=(random.randrange(0,1)*(1 if random.randint(0,1)>0 else -1),
+                        #random.randrange(0,1)*(1 if random.randint(0,1)>0 else -1))
+    
+    
+    
+    im = OffsetImage(mpimg.imread(paintingPicturesPath+'/'+paintingPictures[i]), zoom=0.1)
     im.image.axes = ax
-    ab = AnnotationBbox(im, (reducedData[i][0], reducedData[i][1],reducedData[i][2]),
-                        xybox=(-10., 10.),
+    
+    ab = AnnotationBbox(im, (x2,y2),
+                        xybox=(0, 0),
                         xycoords='data',
                         boxcoords="offset points",
                         pad=0.0,
-                        arrowprops=dict(arrowstyle="->"))
-    ax.add_artist(ab)'''
-   
+                        arrowprops=dict(arrowstyle="->"),bboxprops = dict(edgecolor=frame_palette[labels2[i]], linewidth=6))
+    ab.set_zorder(-10)
+    annotations.append(ab)
+    
+    ax.add_artist(ab)
+    
+    #ann=ax.annotate(
+        #txt, 
+        #xy=(x2, y2), size=5,
+        #bbox = dict(boxstyle = 'round,pad=0.1', fc = 'yellow', alpha = 0.2))
+    ann=Annotation(txt, 
+        xy=(x2, y2), size=5,
+        bbox = dict(boxstyle = 'round,pad=0.1', fc = 'yellow', alpha = 0.2))
+    ax.add_artist(ann)
+    textAnnotations.append(ann)
+    
+def update_position(e):
+    for i in range(0,len(paintingImageLabels)):
+        x2, y2, _ = proj3d.proj_transform(reducedData[i][0],reducedData[i][1],reducedData[i][2], ax.get_proj())
+        annotations[i].xy = x2,y2
+        annotations[i].update_positions(fig.canvas.renderer)
+        
+        #textAnnotations[i].xy = x2,y2
+        #textAnnotations[i] = x2,y2
+        textAnnotations[i].set_position((x2,y2))
+        #textAnnotations[i].update_positions(fig.canvas.renderer)
+    fig.canvas.draw()
 #set_size(100,100,ax)
-plt.show()
-
-
+fig.canvas.mpl_connect('button_release_event', update_position)
+#plt.show()
+plt.ioff()
+plt.close()
+'''
 #ax2=plt.subplot();
 #ax2.scatter(reducedData[:, 0], reducedData[:, 1], c=labels2, s=40, cmap='gist_rainbow');
 #set_size(100,100,ax2)
