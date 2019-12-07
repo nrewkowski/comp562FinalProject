@@ -128,11 +128,14 @@ def luminance(rgb):
 #******************255 is darker
 #******************luminance and grayscale value are the same
 #make sure to convert to 0-1.0
+'''intersection over union
+get # of items that are in both clusters. the highest score of all of them is the score of the method
+'''
 skips=[3,3]
 showImages=False
 i=0
 
-rangeOfImagesToProcess=3000
+rangeOfImagesToProcess=200
 rangeOfImagesToShow=rangeOfImagesToProcess
 start_time = time.time()
 print("&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&",type(4) is int)
