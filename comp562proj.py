@@ -111,7 +111,7 @@ if False:
 #plt.show()
         
 '''
-
+picZoom=0.3
 paintingMetadata=pandas.read_csv("___paintingdata/all_data_info.csv")
 print("**********************painting metadata",'\n\n',paintingMetadata,'\n\n',paintingMetadata['new_filename'],'\n\n',
       paintingMetadata.columns,'\n\n',paintingMetadata.columns[0],'\n\n',
@@ -162,18 +162,18 @@ def luminance(rgb):
 '''intersection over union
 get # of items that are in both clusters. the highest score of all of them is the score of the method
 '''
-skips=[20,20]
+skips=[5,5]
 showImages=False
 i=0
 imagesMarkedForDeletion=[]
-rangeOfImagesToProcess=7000
-numOfImagesToShowOnGraph=50
+rangeOfImagesToProcess=200
+numOfImagesToShowOnGraph=75
 visualsSkip=int(rangeOfImagesToProcess/numOfImagesToShowOnGraph)
 rangeOfImagesToShow=rangeOfImagesToProcess
 start_time = time.time()
 print("&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&",type(4) is int)
 print("++++++++++++++++++++++++++++++++++",collections.Counter(paintingMetadata['style'])['Impressionism'])
-
+imagesForOutput=[] #this is to avoid re-imreading
 
 #sys.exit(0)
 featureArraySplit=[[],[],[]]
@@ -202,6 +202,7 @@ for painting in paintingPictures[0:rangeOfImagesToProcess]:
         print("*****delete",painting)
         #print("^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^not an image?",painting)
     else:
+        imagesForOutput.append(thisPainting)
         paintingImageLabels.append(imageStyle)
         averageRGB=[0,0,0]
         averageColorGrayscale=0
@@ -276,8 +277,11 @@ countOfEachPaintingStyle=collections.Counter(paintingImageLabels)
 ##############################allPaintingGenres=np.unique(paintingMetadata['genre'])
 #countOfEachPaintingGenre=collections.Counter(paintingMetadata['genre'])
 
+print("-------------------------------------------------------------------------------------------numPicsToDelete",len(imagesMarkedForDeletion))
 
-
+for image in imagesMarkedForDeletion:
+    os.remove(paintingPicturesPath+'/'+image)
+print(paintingImageLabels.count('Baroque'),'\n processed in ',time.time() - start_time,'\n',collections.Counter(paintingImageLabels))
 '''
 fig = plt.figure()
 ax2 = fig.add_subplot(111)
@@ -438,7 +442,7 @@ for i, txt in enumerate(paintingImageLabels[::visualsSkip]):
     
     
     
-    im = OffsetImage(mpimg.imread(paintingPicturesPath+'/'+paintingPictures[i*visualsSkip]), zoom=0.1)
+    im = OffsetImage(imagesForOutput[i*visualsSkip], zoom=picZoom)
     im.image.axes = ax5
     
     ab = AnnotationBbox(im, (x2,y2),
@@ -476,7 +480,7 @@ def update_position(e):
 #set_size(100,100,ax)
 fig4.canvas.mpl_connect('button_release_event', update_position)
 
-
+fig4.tight_layout()
 
 plt.show()
 
@@ -674,6 +678,7 @@ gmmaccax.legend()
 #gmmaccax = gmmaccfig.add_subplot(111)
 #gmmaccax.bar(styleIndex,accuracyText,tick_label=styleText)
 #gmmaccax.set_title("GMM ACCURACIES")
+gmmaccfig.tight_layout()
 plt.show()
 
 
@@ -872,7 +877,7 @@ for i, txt in enumerate(paintingImageLabels[::visualsSkip]):
     
     
     
-    im = OffsetImage(mpimg.imread(paintingPicturesPath+'/'+paintingPictures[i*visualsSkip]), zoom=0.1)
+    im = OffsetImage(imagesForOutput[i*visualsSkip], zoom=picZoom)
     im.image.axes = ax
     
     ab = AnnotationBbox(im, (x2,y2),
@@ -909,6 +914,7 @@ def update_position1(e):
     fig.canvas.draw()
 #set_size(100,100,ax)
 fig.canvas.mpl_connect('button_release_event', update_position1)
+fig.tight_layout()
 plt.show()
 #plt.ioff()
 #plt.close()
@@ -965,7 +971,7 @@ for i, txt in enumerate(paintingImageLabels[::visualsSkip]):
     
     
     
-    im = OffsetImage(mpimg.imread(paintingPicturesPath+'/'+paintingPictures[i*visualsSkip]), zoom=0.1)
+    im = OffsetImage(imagesForOutput[i*visualsSkip], zoom=picZoom)
     im.image.axes = ax0 
     
     ab = AnnotationBbox(im, (x2,y2),
@@ -1002,4 +1008,5 @@ def update_position2(e):
     fig0.canvas.draw()
 #set_size(100,100,ax)
 fig0.canvas.mpl_connect('button_release_event', update_position2)
+fig0.tight_layout()
 plt.show()
