@@ -166,14 +166,16 @@ skips=[20,20]
 showImages=False
 i=0
 imagesMarkedForDeletion=[]
-rangeOfImagesToProcess=200
+rangeOfImagesToProcess=7000
 numOfImagesToShowOnGraph=50
 visualsSkip=int(rangeOfImagesToProcess/numOfImagesToShowOnGraph)
 rangeOfImagesToShow=rangeOfImagesToProcess
 start_time = time.time()
 print("&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&",type(4) is int)
 print("++++++++++++++++++++++++++++++++++",collections.Counter(paintingMetadata['style'])['Impressionism'])
-sys.exit(-1)
+
+
+#sys.exit(0)
 featureArraySplit=[[],[],[]]
 for painting in paintingPictures[0:rangeOfImagesToProcess]:
     thisPainting=mpimg.imread(paintingPicturesPath+'/'+painting)
@@ -267,6 +269,15 @@ for painting in paintingPictures[0:rangeOfImagesToProcess]:
     #print("333333333333333333333333",averageSaturation)
         i+=1
         #print("image features",i,paintingImageFeatures[len(paintingImageFeatures)-1], paintingImageLabels[len(paintingImageFeatures)-1])
+
+allPaintingStyles=np.unique(paintingImageLabels)
+countOfEachPaintingStyle=collections.Counter(paintingImageLabels)
+
+##############################allPaintingGenres=np.unique(paintingMetadata['genre'])
+#countOfEachPaintingGenre=collections.Counter(paintingMetadata['genre'])
+
+
+
 '''
 fig = plt.figure()
 ax2 = fig.add_subplot(111)
@@ -515,7 +526,7 @@ def annotate3D(ax, s, *args, **kwargs):
 print("this many features=",len(paintingImageFeatures[0]),'___this many labels',len(collections.Counter(paintingImageLabels)))
 #print(gmm)
 numClusters=len(collections.Counter(paintingImageLabels))
-numClusters=3
+numClusters=4
 numPCAComponents=3 #so I can do 3d render!
 from sklearn import preprocessing
 reducedData=PCA(n_components=numPCAComponents).fit_transform(featureMatrix)
@@ -602,6 +613,68 @@ print("accuracies",acc2)
 ###############################################################measure accuracy: for each cluster, how many are in the same group
 #for each genre, count number of paintings in that genre in each cluster. do cluster with greatest size / total number of paintings in that genre
 
+'''
+allPaintingStyles=np.unique(paintingMetadata['style'])
+countOfEachPaintingStyle=collections.Counter(paintingMetadata['style'])
+
+allPaintingGenres=np.unique(paintingMetadata['genre'])
+countOfEachPaintingGenre=collections.Counter(paintingMetadata['genre'])
+
+'''
+
+gmmaccfig = plt.figure()
+gmmaccax = gmmaccfig.add_subplot(111)
+gmmaccax.set_title("GMM ACCURACIES")
+
+accuracyForEachStyle=[]
+styleText=[]
+styleIndex=[]
+accuracyText=[]
+for style in range(len(allPaintingStyles)):
+    howManyOfThisStyleThereAre=countOfEachPaintingStyle[allPaintingStyles[style]]
+    howManyOfThisStyleAreInEachCluster=[]
+    for cluster in range(numClusters):
+        howManyOfThisStyleAreInEachCluster.append(0)
+    #print("$",howManyOfThisStyleAreInEachCluster)
+    for thisLabel in range(len(labels2)):
+        howManyOfThisStyleAreInEachCluster[labels2[thisLabel]]+=1
+    
+    maxNumberOfThisStyleInAnyCluster=-1
+    for cluster in range(numClusters):
+        if howManyOfThisStyleAreInEachCluster[cluster]>maxNumberOfThisStyleInAnyCluster:
+            maxNumberOfThisStyleInAnyCluster=howManyOfThisStyleAreInEachCluster[cluster]
+    #print("----------------accuracy for this style:",allPaintingStyles[style],round(howManyOfThisStyleThereAre/maxNumberOfThisStyleInAnyCluster,4),"n=",howManyOfThisStyleThereAre)
+    accuracyForEachStyle.append((round(howManyOfThisStyleThereAre/maxNumberOfThisStyleInAnyCluster,4),allPaintingStyles[style],howManyOfThisStyleThereAre,style))
+    styleText.append(allPaintingStyles[style])
+    styleIndex.append(style)
+    accuracyText.append(round(howManyOfThisStyleThereAre/maxNumberOfThisStyleInAnyCluster,4))
+fontsize1=8
+sortedVals=sorted(accuracyForEachStyle, key=lambda x: x[0],reverse=True)
+#res_list = [x[0] for x in accuracyForEachStyle]
+#sortedVals=sorted()
+bars=gmmaccax.barh(np.arange(len(sortedVals))*2,[x[0] for x in sortedVals])
+print('gmm ((((((((((((((((((((((',sortedVals)
+#gmmaccax.set_xticks([x[3] for x in sortedVals])
+#gmmaccax.set_xticklabels([x[1] for x in sortedVals])
+plt.yticks(np.arange(len(sortedVals))*2, [x[1] for x in sortedVals], fontsize=fontsize1)
+#gmmaccax.set_xticklabels([x[1] for x in sortedVals])
+def autolabel(rects):
+    """Attach a text label above each bar in *rects*, displaying its height."""
+    for rect in range(len(rects)):
+        height = rects[rect].get_width()
+        gmmaccax.annotate('{}'.format('n='+str(sortedVals[rect][2])),
+                    xy=(height,rects[rect].get_y() - rects[rect].get_height() / 2),
+                    xytext=(10, 0),  # 3 points vertical offset
+                    textcoords="offset points",
+                    ha='left', va='bottom', fontsize=fontsize1)
+autolabel(bars)
+#gmmaccax.
+gmmaccax.legend()
+#gmmaccfig = plt.figure()
+#gmmaccax = gmmaccfig.add_subplot(111)
+#gmmaccax.bar(styleIndex,accuracyText,tick_label=styleText)
+#gmmaccax.set_title("GMM ACCURACIES")
+plt.show()
 
 
 
@@ -609,14 +682,7 @@ print("accuracies",acc2)
 
 
 
-
-
-
-
-
-
-
-kmeans = KMeans(init='random',n_clusters=numClusters, n_init=20,max_iter=1000,verbose=0)
+kmeans = KMeans(init='k-means++',n_clusters=numClusters, n_init=20,max_iter=1000,verbose=0)
 labels3 = kmeans.fit_predict(reducedData)
 
 
@@ -689,7 +755,27 @@ print("kacc",accuracyOfEachCluster2,'\n\n\n',accuracyOfDesiredInEachCluster2,'\n
 acc3=accuracy_score(intLabels2,labelsCopied2)
 print("kaccuracies",acc3)
 
+accuracyForEachStyle2=[]
 
+for style in range(len(allPaintingStyles)):
+    howManyOfThisStyleThereAre=countOfEachPaintingStyle[allPaintingStyles[style]]
+    howManyOfThisStyleAreInEachCluster=[]
+    for cluster in range(numClusters):
+        howManyOfThisStyleAreInEachCluster.append(0)
+    #print("$",howManyOfThisStyleAreInEachCluster)
+    for thisLabel in range(len(labels3)):
+        howManyOfThisStyleAreInEachCluster[labels3[thisLabel]]+=1
+    
+    maxNumberOfThisStyleInAnyCluster=-1
+    for cluster in range(numClusters):
+        if howManyOfThisStyleAreInEachCluster[cluster]>maxNumberOfThisStyleInAnyCluster:
+            maxNumberOfThisStyleInAnyCluster=howManyOfThisStyleAreInEachCluster[cluster]
+    #print("----------------accuracy for this style:",allPaintingStyles[style],round(howManyOfThisStyleThereAre/maxNumberOfThisStyleInAnyCluster,4),"n=",howManyOfThisStyleThereAre)
+    accuracyForEachStyle2.append((round(howManyOfThisStyleThereAre/maxNumberOfThisStyleInAnyCluster,4),allPaintingStyles[style],howManyOfThisStyleThereAre))
+    
+sortedVals2=sorted(accuracyForEachStyle2, key=lambda x: x[0],reverse=True)
+
+print('kk(((((((((((((((((((((',sortedVals2)
 
 
 
